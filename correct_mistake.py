@@ -48,33 +48,6 @@ def make_lemma(s):
         st += i[1: len(i)-1] + ' '
     return st[0:len(st)-1]
 
-def make_dct():
-    dct={}
-    dct = json.load(open('output_verse_dct_1.json', 'r', encoding='utf-8'))
-
-    dct_2={}
-    dct_2 = json.load(open('output_verse_dct_2.json', 'r', encoding='utf-8'))
-
-    for key in dct_2:
-        if dct.get(key) != None:
-            lst = dct[key]
-            lst.extend(dct_2[key])
-            dct[key]=lst
-        else:
-            dct[key]=dct_2[key]
-    
-    dct_2={}
-    dct_2 = json.load(open('output_verse_dct_3.json', 'r', encoding='utf-8'))
- 
-    for key in dct_2:
-        if dct.get(key) != None:
-            lst = dct[key]
-            lst.extend(dct_2[key])
-            dct[key]=lst
-        else:
-            dct[key]=dct_2[key]
-            
-    return dct
 
 def correction(tri, lemmas):
     final_tri=''
@@ -145,12 +118,12 @@ def new_trigram(trigram, answer, l, r):
             if 'а' <= i[0] <= 'я' or 'А' <= i[0] <= 'Я':
                 w += 1
             if w < 3:
-                new_tri += i
-        new_tri += lst[0]
+                new_tri += i + ' '
+        new_tri += lst[0] + ' '
 
 
     if l == 0 and r == 1:
-        new_tri += lst[len(lst)-1]
+        new_tri += lst[len(lst)-1] + ' '
 
         w = 0
         for i in lst_1:
@@ -169,6 +142,7 @@ def make_sentence(trigrams):
             break
         sentence += trigrams[i] + ' '
 
+    print(len(trigrams))
     reg_exp = re.compile('[а-яА-Я,:;-]+', flags=re.U | re.DOTALL)
     lst = re.findall(reg_exp, trigrams[len(trigrams) - 1], flags=0)
     if i + 3 == len(trigrams):
@@ -198,74 +172,47 @@ def find_commas(s):
     return commas[::-1]
     
 
-dct = make_dct()
+dct = json.load(open('output_verse_dct.json', 'r', encoding='utf-8'))
 
 fin = open('input_text.txt', 'r', encoding='utf-8')
+fout = open('output_text.txt', 'w', encoding='utf-8')
 for line in fin:
     lst = convert(line)
     trigrams = make_trigram(lst)
     commas = find_commas(line)
+    #print(trigrams)
     
     answer = ''
     for i in range(len(trigrams)):
         lemma = make_lemma(trigrams[i])
+        #print(lemma)
         lemmas = dct.get(lemma)
         if lemmas != None:
             answer = correction(trigrams[i], lemmas)
+            #print('yes', answer)
+            #print(lemmas)
         else:
-            answer = trigrams[i]    
+            answer = trigrams[i]
+            #print('none')
 
         if answer != trigrams[i]:
             if i - 1 >= 0:
-                trigrams[i-1] == new_trigram(trigrams[i-1], answer, 1, 3)
+                new = new_trigram(trigrams[i-1], answer, 1, 3)
+                trigrams[i-1] = new
             if i + 1 < len(trigrams):
-                trigrams[i+1] = new_trigram(trigrams[i+1], answer, 0, 2)
+                new = new_trigram(trigrams[i+1], answer, 0, 2)
+                trigrams[i+1] = new
             if i - 2 >= 0:
-                trigrams[i-2] == new_trigram(trigrams[i-2], answer, 2, 3)
+                new = new_trigram(trigrams[i-2], answer, 2, 3)
+                trigrams[i-2] = new
             if i + 2 < len(trigrams):
-                trigrams[i+2] == new_trigram(trigrams[i+2], answer, 0, 1)
+                new = new_trigram(trigrams[i+2], answer, 0, 1)
+                trigrams[i+2] = new
             trigrams[i] = answer
-    
+
     sentence = make_sentence(trigrams)
-    sentence += commas
-    print(line, sentence)
+    sentence += find_commas(line)
+    print(sentence, file = fout)
  
 fin.close()
-
-#Not found значит,что мы не сможем исправить ошибку. также мы не узнаем, есть ваще ошибка или нет
-#print(i, lemma, answer)
-    
-
-# (!) см.ТОЧКУ в выражениях "и т.п."...
-
-"""
-Вопрос состоят в том что есть у человека свободная воля?
-
-#'свободная воля'
-4 'и свободная воля'
-4 'свободная воля и'
-3 'свободная воля есть'
-'у человека свободная' /у человек свободный/ Not found
-'человека свободная воля' /человек свободный воля/ Not found
-
-#'у человека'
-174 'что у человека'
-149 'как у человека'
-124 'у человека есть'
-92 'у человека в'
-88 'у человека , который'
-75 'и у человека'
-73 'если у человека'
-...
-12 'в сторону человека'
-11 'жизни у человека'
-10 'у человека возникает'
-...
-
-#'человека свобдная'
-НЕТ
-
-можно исправлять грамматические ошибки,но не синтаксис предложения
-
-
-"""
+fout.close()
